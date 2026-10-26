@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (.SRCINFO + ShellCheck)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      # git antes del checkout: sin git, actions/checkout baja un tarball sin .git
+      # y `git diff --check` de make lint falla.
+      - name: Herramientas
+        run: pacman -Syu --noconfirm --needed git shellcheck make jq
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          useradd --create-home builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          su builder --shell /bin/bash --command "cd '$GITHUB_WORKSPACE' && git config --global --add safe.directory '$GITHUB_WORKSPACE' && make lint"
+      - name: Automatización upstream (offline)
+        run: tests/test-upstream-automation.sh
+
+  package:
+    name: Build + install en Arch (Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Código fuente en el tag del PKGBUILD
+        run: |
+          pkgver="$(awk -F= '/^pkgver=/{print $2; exit}' PKGBUILD)"
+          git clone --depth 1 --branch "v${pkgver}" https://github.com/robert-flo/ravn-sessionizer.git "$RUNNER_TEMP/src"
+      - name: Checksum del release publicado
+        run: make test-release
+      - name: Build, install y comandos
+        run: make test-local SOURCE_DIR="$RUNNER_TEMP/src"
