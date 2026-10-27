@@ -2,3 +2,4 @@ pkg/
 src/
 *.pkg.tar.*
 ravn-sessionizer-*.tar.gz
+!ravn-sessionizer-*.*.*.tar.gz

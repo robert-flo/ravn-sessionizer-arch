@@ -50,7 +50,10 @@ phase_prepare_workspace() {
 phase_build_and_install() {
   printf '==> [container 4/5] Building and installing the local package\n'
   su --shell /bin/bash builder --command \
-      'cd /work/package && makepkg -Cfi --noconfirm --needed --skipchecksums'
+      'cd /work/package && makepkg -Cf --nodeps --noconfirm --skipchecksums'
+  # herdr y ravn-trio vienen de omarchy-personal-repo, no de los repos de Arch:
+  # el contenedor instala sin chequear dependencias (el payload no las usa).
+  pacman -U --noconfirm --nodeps --nodeps /work/package/*.pkg.tar.*
 }
 
 phase_verify_payload() {

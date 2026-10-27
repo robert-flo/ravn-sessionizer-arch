@@ -1,24 +1,21 @@
 pkgname=ravn-sessionizer
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
-pkgdesc='Sessionizer para herdr: workspaces, repos, pj-* y agentes en un fzf; tríos desde issues ready-for-agent'
+pkgdesc='Sessionizer para herdr: workspaces, repos, pj-* y agentes en un fzf; tríos desde los issues de todos los proyectos'
 arch=('any')
 url='https://github.com/robert-flo/ravn-sessionizer'
 license=('MIT')
 options=('!debug')
-depends=('bash' 'fzf' 'jq' 'github-cli' 'git')
-# herdr no está en los repos oficiales (AUR: herdr / herdr-bin, o el instalador
-# oficial) y ninguno declara provides=herdr: como depends rompería makepkg -si
-# en máquinas con herdr instalado fuera de pacman.
-optdepends=(
-  'herdr: multiplexor donde corre el plugin (AUR herdr/herdr-bin o instalador oficial)'
-  'ravn-trio: lanzar tríos PM/WK/RV desde issues (pj-trio)'
-)
+depends=('bash' 'fzf' 'jq' 'github-cli' 'git' 'herdr>=0.9.5' 'ravn-trio')
+# herdr y ravn-trio los sirve omarchy-personal-repo (robert-flo/omarchy-pkgs).
+optdepends=('try: clonar con try exec … clone los repos que falten (SES_CLONE_CMD)')
 makedepends=('make')
 backup=('etc/ravn/sessionizer.conf')
-source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
+# Fuente privada: tarball vendoreado (git archive --prefix=${pkgname}-${pkgver}/
+# v${pkgver} | gzip -n), así makepkg no necesita credenciales de GitHub.
+source=("${pkgname}-${pkgver}.tar.gz")
 sha256sums=(
-  '2b35521633c5cd88d1e3d61de3c0c6476444fca8fe98a0f9f9ca876ddc72c6a4'
+  'dbe7fe73b4b23f5d16f921f8e409d5173acb75d6052977ae3bf36c4b38c341e0'
 )
 
 package() {
