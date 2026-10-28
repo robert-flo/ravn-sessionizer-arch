@@ -155,6 +155,13 @@ jobs:
           test -f /etc/ravn/sessionizer.conf
           test -f /usr/share/licenses/ravn-sessionizer/LICENSE
           test -L /usr/share/bash-completion/completions/ravn-sessionizer
+          # rs/ri son alias de bash, no binarios.
+          test ! -e /usr/bin/rs
+          test ! -e /usr/bin/ri
+          rcd=/usr/share/ravn/bash/rc.d/ravn-sessionizer.bash
+          test -f "${rcd}"
+          bash -c "shopt -s expand_aliases; source ${rcd}; alias rs ri" | grep -qx "alias rs='ravn-sessionizer repos'"
+          bash -c "shopt -s expand_aliases; source ${rcd}; alias ri" | grep -qx "alias ri='ravn-sessionizer issues'"
           echo "instalación verificada: /usr/bin/ravn-sessionizer, /usr/share/ravn/sessionizer, config y completion presentes"
 
       - name: Upload the package artifact

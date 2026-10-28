@@ -119,6 +119,16 @@ while IFS= read -r ref; do
     die "package() references a source path missing from the source tree: $ref"
 done < <(grep -oE '"\$\{source_dir\}/[^"]+"' "$PACKAGE_DIR/PKGBUILD" | tr -d '"')
 
+# rs/ri: alias de bash como drop-in en /usr/share/ravn/bash/rc.d (lo carga el
+# rc de ravn-omarchy-overlay), y el install-test lo verifica.
+grep -qF '/usr/share/ravn/bash/rc.d/ravn-sessionizer.bash' "$PACKAGE_DIR/PKGBUILD" || \
+  die 'PKGBUILD does not install the rs/ri alias drop-in'
+grep -qF "alias rs='ravn-sessionizer repos'" "$PACKAGE_DIR/PKGBUILD" || die 'PKGBUILD lacks alias rs'
+grep -qF "alias ri='ravn-sessionizer issues'" "$PACKAGE_DIR/PKGBUILD" || die 'PKGBUILD lacks alias ri'
+grep -qF 'rc.d/ravn-sessionizer.bash' "$WORKFLOW" 2>/dev/null || \
+  grep -qF 'rc.d/ravn-sessionizer.bash' "$PACKAGE_DIR/.github/workflows/package.yml" || \
+  die 'package.yml does not install-test the alias drop-in'
+
 # .SRCINFO is regenerated to the same contract.
 miss "$old_sha" "$PACKAGE_DIR/.SRCINFO" '.SRCINFO still carries the vendored tarball checksum'
 grep -qE '^	pkgver = 0\.2\.0$' "$PACKAGE_DIR/.SRCINFO" || die '.SRCINFO pkgver is not the 0.2.0 base'

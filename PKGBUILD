@@ -30,4 +30,12 @@ package() {
   install -d "${pkgdir}/usr/share/bash-completion/completions"
   ln -s /usr/share/ravn/sessionizer/runtime/completion/ravn-sessionizer.bash \
     "${pkgdir}/usr/share/bash-completion/completions/ravn-sessionizer"
+  # Alias rs/ri: drop-in que el rc de ravn-omarchy-overlay (>= 0.1.1) carga
+  # en cada bash interactiva desde /usr/share/ravn/bash/rc.d/*.bash.
+  install -d "${pkgdir}/usr/share/ravn/bash/rc.d"
+  printf '%s\n' \
+    '# ravn-sessionizer: alias de bash (instalado por ravn-sessionizer-arch).' \
+    "alias rs='ravn-sessionizer repos'" \
+    "alias ri='ravn-sessionizer issues'" \
+    > "${pkgdir}/usr/share/ravn/bash/rc.d/ravn-sessionizer.bash"
 }
