@@ -1,7 +1,7 @@
 pkgbase = ravn-sessionizer
 	pkgdesc = Sessionizer para herdr: workspaces, repos, pj-* y agentes en un fzf; tríos desde los issues de todos los proyectos
 	pkgver = 0.2.0
-	pkgrel = 2
+	pkgrel = 3
 	url = https://github.com/robert-flo/ravn-sessionizer
 	arch = any
 	license = MIT
