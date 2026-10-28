@@ -1,7 +1,7 @@
 pkgbase = ravn-sessionizer
 	pkgdesc = Sessionizer para herdr: workspaces, repos, pj-* y agentes en un fzf; tríos desde los issues de todos los proyectos
 	pkgver = 0.2.0
-	pkgrel = 1
+	pkgrel = 2
 	url = https://github.com/robert-flo/ravn-sessionizer
 	arch = any
 	license = MIT
@@ -13,7 +13,8 @@ pkgbase = ravn-sessionizer
 	depends = git
 	depends = herdr>=0.9.5
 	depends = ravn-trio
-	optdepends = try: clonar con try exec … clone los repos que falten (SES_CLONE_CMD)
+	depends = ravn-omarchy-overlay>=0.1.1
+	optdepends = tobi-try: clonar con try exec … clone los repos que falten (SES_CLONE_CMD)
 	options = !debug
 	backup = etc/ravn/sessionizer.conf
 	source = ravn-sessionizer-0.2.0.tar.gz
