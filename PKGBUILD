@@ -4,15 +4,15 @@ pkgname=ravn-sessionizer
 # sha empaquetado (el tarball lo genera ese job con git archive del sha).
 # Sin PKGVER, makepkg local usa la base del último release empaquetado.
 pkgver="${PKGVER:-0.2.0}"
-pkgrel=1
+pkgrel=2
 pkgdesc='Sessionizer para herdr: workspaces, repos, pj-* y agentes en un fzf; tríos desde los issues de todos los proyectos'
 arch=('any')
 url='https://github.com/robert-flo/ravn-sessionizer'
 license=('MIT')
 options=('!debug')
-depends=('bash' 'fzf' 'jq' 'github-cli' 'git' 'herdr>=0.9.5' 'ravn-trio')
+depends=('bash' 'fzf' 'jq' 'github-cli' 'git' 'herdr>=0.9.5' 'ravn-trio' 'ravn-omarchy-overlay>=0.1.1')
 # herdr y ravn-trio los sirve omarchy-personal-repo (robert-flo/omarchy-pkgs).
-optdepends=('try: clonar con try exec … clone los repos que falten (SES_CLONE_CMD)')
+optdepends=('tobi-try: clonar con try exec … clone los repos que falten (SES_CLONE_CMD)')
 makedepends=('make')
 backup=('etc/ravn/sessionizer.conf')
 # Tarball al vuelo: lo genera el job de package.yml con `git archive` del
