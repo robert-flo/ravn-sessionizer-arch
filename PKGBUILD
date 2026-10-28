@@ -4,7 +4,7 @@ pkgname=ravn-sessionizer
 # sha empaquetado (el tarball lo genera ese job con git archive del sha).
 # Sin PKGVER, makepkg local usa la base del último release empaquetado.
 pkgver="${PKGVER:-0.2.0}"
-pkgrel=3
+pkgrel=4
 pkgdesc='Sessionizer para herdr: workspaces, repos, pj-* y agentes en un fzf; tríos desde los issues de todos los proyectos'
 arch=('any')
 url='https://github.com/robert-flo/ravn-sessionizer'
