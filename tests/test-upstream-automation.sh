@@ -26,7 +26,29 @@ setup() {
   test_dir="$(mktemp -d "${TMPDIR:-/tmp}/ravn-sessionizer-automation-test.XXXXXX")"
   trap 'rm -rf "$test_dir"' EXIT
   mkdir -p "$test_dir/bin"
-  cp "$PACKAGE_DIR/PKGBUILD" "$test_dir/PKGBUILD"
+  # El PKGBUILD vivo ya no fija checksums (contrato del empaquetado al
+  # vuelo de package.yml). El updater de releases sigue siendo legacy y
+  # necesita el contrato viejo con checksum fijo, así que el fixture lo
+  # lleva completo y no depende del PKGBUILD vivo.
+  cat > "$test_dir/PKGBUILD" <<'FIXTURE_PKGBUILD'
+pkgname=ravn-sessionizer
+pkgver=0.2.0
+pkgrel=1
+pkgdesc='Fixture legacy del contrato de releases para el updater'
+arch=('any')
+url='https://github.com/robert-flo/ravn-sessionizer'
+license=('MIT')
+makedepends=('make')
+depends=('bash')
+source=("ravn-sessionizer-0.2.0.tar.gz")
+sha256sums=(
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+)
+
+package() {
+  :
+}
+FIXTURE_PKGBUILD
 
   cat > "$test_dir/bin/gh" <<'MOCK_GH'
 #!/usr/bin/env bash

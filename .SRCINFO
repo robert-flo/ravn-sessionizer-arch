@@ -17,6 +17,6 @@ pkgbase = ravn-sessionizer
 	options = !debug
 	backup = etc/ravn/sessionizer.conf
 	source = ravn-sessionizer-0.2.0.tar.gz
-	sha256sums = dbe7fe73b4b23f5d16f921f8e409d5173acb75d6052977ae3bf36c4b38c341e0
+	sha256sums = SKIP
 
 pkgname = ravn-sessionizer
