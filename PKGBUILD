@@ -1,5 +1,9 @@
 pkgname=ravn-sessionizer
-pkgver=0.2.0
+# La versión rastreable la calcula el job de CI (package.yml) y la entrega
+# por PKGVER: base.r<N>.<shortsha>, con N de `git describe --long` sobre el
+# sha empaquetado (el tarball lo genera ese job con git archive del sha).
+# Sin PKGVER, makepkg local usa la base del último release empaquetado.
+pkgver="${PKGVER:-0.2.0}"
 pkgrel=1
 pkgdesc='Sessionizer para herdr: workspaces, repos, pj-* y agentes en un fzf; tríos desde los issues de todos los proyectos'
 arch=('any')
@@ -11,12 +15,11 @@ depends=('bash' 'fzf' 'jq' 'github-cli' 'git' 'herdr>=0.9.5' 'ravn-trio')
 optdepends=('try: clonar con try exec … clone los repos que falten (SES_CLONE_CMD)')
 makedepends=('make')
 backup=('etc/ravn/sessionizer.conf')
-# Fuente privada: tarball vendoreado (git archive --prefix=${pkgname}-${pkgver}/
-# v${pkgver} | gzip -n), así makepkg no necesita credenciales de GitHub.
+# Tarball al vuelo: lo genera el job de package.yml con `git archive` del
+# sha despachado y lo deja en el directorio de build, así que makepkg no
+# necesita credenciales de GitHub ni checksum congelado.
 source=("${pkgname}-${pkgver}.tar.gz")
-sha256sums=(
-  'dbe7fe73b4b23f5d16f921f8e409d5173acb75d6052977ae3bf36c4b38c341e0'
-)
+sha256sums=('SKIP')
 
 package() {
   local source_dir="${srcdir}/${pkgname}-${pkgver}"
