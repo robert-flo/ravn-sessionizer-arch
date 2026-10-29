@@ -79,9 +79,11 @@ Host impact:
   - `docker run --rm` deletes the container and its installed packages on exit.
 
 Checksum behavior:
-  The generated local archive is not byte-identical to GitHub's release archive,
+  The generated local archive is not byte-identical to a published one,
   so this test redirects PKGBUILD to the local file and uses --skipchecksums.
-  validate-release-archive.sh independently verifies the published checksums.
+  The package built by package.yml carries sha256sums=('SKIP'): the tarball
+  comes from `git archive` of the dispatched source sha, so no published
+  checksum exists to verify.
 
 Exit status:
   0  Package installation and all public-command checks passed.

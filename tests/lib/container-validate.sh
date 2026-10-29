@@ -37,9 +37,10 @@ phase_prepare_workspace() {
   # PKGBUILD.
   find /work/package -maxdepth 1 -type f -name '*.pkg.tar.*' -delete
 
-  # A local git archive has different bytes from the published GitHub archive.
-  # Redirect PKGBUILD to it here; validate-release-archive.sh independently
-  # checks the published checksums.
+  # The checkout may carry the on-the-fly tarball (sha256sums=('SKIP')) or a
+  # local git archive with different bytes from any published archive.
+  # Redirect PKGBUILD to the local file here; the SKIP contract means there
+  # are no published checksums to check.
   sed -i \
     "s|\${url}/archive/refs/tags/v\${pkgver}.tar.gz|file:///archive/ravn-sessionizer-${PKG_VERSION}.tar.gz|" \
     /work/package/PKGBUILD
