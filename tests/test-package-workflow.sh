@@ -221,4 +221,36 @@ grep -qF "alias rs='ravn-sessionizer repos'" "$build_script" || \
 grep -qF "alias ri='ravn-sessionizer issues'" "$build_script" || \
   die 'the install-test does not verify the ri alias'
 
+# El install-test asume instalados los paquetes propios que ningún repo
+# del contenedor sirve (viven en omarchy-personal-repo); las deps de
+# repos las resuelve el propio pacman -U descargándolas del sync, como
+# mostró el primer run real (40700029220).
+grep -qF -- '--assume-installed herdr=0.9.5' "$build_script" || \
+  die 'the install-test does not assume herdr installed (it only exists in omarchy-personal-repo)'
+grep -qF -- '--assume-installed ravn-trio=0.1.3' "$build_script" || \
+  die 'the install-test does not assume ravn-trio installed (it only exists in omarchy-personal-repo)'
+grep -qF -- '--assume-installed ravn-omarchy-overlay=0.1.1' "$build_script" || \
+  die 'the install-test does not assume ravn-omarchy-overlay installed (it only exists in omarchy-personal-repo)'
+
+# Cobertura: toda dep del PKGBUILD que no viva en los repos de Arch debe
+# estar en el mecanismo. La lista de repos es la conocida hoy; una dep
+# nueva de repos pide sumarla acá, una propia pide su flag arriba.
+read -r -a pkg_deps <<<"$(sed -n "s/^depends=(\(.*\))\$/\1/p" "$PACKAGE_DIR/PKGBUILD" | tr -d "'")"
+repo_deps=' bash fzf jq github-cli git '
+for dep in "${pkg_deps[@]}"; do
+  name="${dep%%[<>=]*}"
+  if [[ $repo_deps != *" $name "* ]]; then
+    grep -qF -- "--assume-installed $name=" "$build_script" || \
+      die "the install-test does not cover the personal dependency: $name"
+  fi
+done
+
+# El mecanismo es del contenedor: el PKGBUILD mantiene las deps reales
+# del sistema; quitar una para contentar al contenedor rompería
+# pacman -Syu en la máquina real.
+for real_dep in "'herdr>=0.9.5'" "'ravn-trio'" "'ravn-omarchy-overlay>=0.1.1'"; do
+  grep -qF "$real_dep" "$PACKAGE_DIR/PKGBUILD" || \
+    die "PKGBUILD lost the real dependency $real_dep: the container mechanism must not touch the PKGBUILD"
+done
+
 printf '%s\n' 'ok package-workflow'
