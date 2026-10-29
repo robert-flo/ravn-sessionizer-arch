@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
-# Update PKGBUILD from release metadata emitted by check_upstream.sh. .SRCINFO
-# remains generated output and is refreshed by the caller with makepkg.
+# Guarded leftover of the retired release automation. The nightly
+# update-upstream.yml workflow and check_upstream.sh are gone: package.yml
+# builds the package from the dispatched source sha and PKGBUILD keeps
+# sha256sums=('SKIP'). This script may still update pkgver/pkgrel of a
+# PKGBUILD that pins a real checksum, but it must die rather than
+# overwrite the SKIP entry under any input.
 
 set -Eeuo pipefail
 
@@ -43,7 +47,7 @@ write_output() {
 }
 
 main() {
-  local current_pkgver current_pkgrel new_pkgrel updated_checksum
+  local current_pkgver current_pkgrel current_checksum new_pkgrel updated_checksum
 
   [[ -f "$PKGBUILD_PATH" ]] || die "missing PKGBUILD: $PKGBUILD_PATH"
   [[ $UPSTREAM_VERSION =~ ^[0-9]+([.][0-9]+)*$ ]] \
@@ -56,6 +60,14 @@ main() {
   [[ -n $current_pkgver ]] || die 'PKGBUILD does not define pkgver.'
   [[ $current_pkgrel =~ ^[0-9]+$ && $current_pkgrel -ge 1 ]] \
     || die 'PKGBUILD pkgrel must be a positive integer.'
+
+  # El contrato de empaquetado al vuelo fija el primer sha256sums en SKIP:
+  # package.yml genera el tarball con git archive del sha despachado y el
+  # checksum real no existe hasta el build. Bajo ninguna entrada este
+  # script puede sobreescribir el SKIP con el sha de un tarball de tag.
+  current_checksum="$(read_archive_checksum)"
+  [[ $current_checksum != 'SKIP' ]] \
+    || die 'sha256sums pins SKIP (on-the-fly packaging contract): refusing to overwrite it.'
 
   if [[ $UPSTREAM_VERSION == "$current_pkgver" ]]; then
     new_pkgrel=$((current_pkgrel + 1))

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
-# Fast, network-free contract tests for the upstream package automation.
+# Fast, network-free contract tests for the guarded package updater.
+#
+# The release-tag automation is retired (update-upstream.yml, check_upstream.sh,
+# sync_upstream.sh, validate-release-archive.sh, make test-release): package.yml
+# builds the package from the dispatched source sha and PKGBUILD keeps
+# sha256sums=('SKIP'). update_package.sh survives only as a guarded tool: it
+# must die instead of overwriting the SKIP entry, under any input.
 
 set -Eeuo pipefail
 
@@ -22,19 +28,14 @@ assert_file_line() {
   grep -Fxq "$expected" "$path" || die "missing '$expected' in $path"
 }
 
-setup() {
-  test_dir="$(mktemp -d "${TMPDIR:-/tmp}/ravn-sessionizer-automation-test.XXXXXX")"
-  trap 'rm -rf "$test_dir"' EXIT
-  mkdir -p "$test_dir/bin"
-  # El PKGBUILD vivo ya no fija checksums (contrato del empaquetado al
-  # vuelo de package.yml). El updater de releases sigue siendo legacy y
-  # necesita el contrato viejo con checksum fijo, así que el fixture lo
-  # lleva completo y no depende del PKGBUILD vivo.
-  cat > "$test_dir/PKGBUILD" <<'FIXTURE_PKGBUILD'
+FIXED_CHECKSUM='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+
+write_pkgbuild_fixture() { # write_pkgbuild_fixture <path> <first-checksum>
+  cat > "$1" <<FIXTURE_PKGBUILD
 pkgname=ravn-sessionizer
 pkgver=0.2.0
 pkgrel=1
-pkgdesc='Fixture legacy del contrato de releases para el updater'
+pkgdesc='Fixture del updater guardado'
 arch=('any')
 url='https://github.com/robert-flo/ravn-sessionizer'
 license=('MIT')
@@ -42,100 +43,82 @@ makedepends=('make')
 depends=('bash')
 source=("ravn-sessionizer-0.2.0.tar.gz")
 sha256sums=(
-  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+  '$2'
 )
 
 package() {
   :
 }
 FIXTURE_PKGBUILD
+}
 
-  cat > "$test_dir/bin/gh" <<'MOCK_GH'
-#!/usr/bin/env bash
-printf '%s\n' '{"tag_name":"v9.8.7"}'
-MOCK_GH
-
-  cat > "$test_dir/bin/curl" <<'MOCK_CURL'
-#!/usr/bin/env bash
-set -Eeuo pipefail
-output=""
-while (($#)); do
-  if [[ $1 == --output ]]; then
-    output="$2"
-    shift 2
-  else
-    shift
+test_retired_automation_is_gone() {
+  local gone
+  for gone in \
+    .github/workflows/update-upstream.yml \
+    scripts/check_upstream.sh \
+    scripts/sync_upstream.sh \
+    tests/validate-release-archive.sh \
+    tests/lib/container-verify-source.sh; do
+    [[ ! -e "$PACKAGE_DIR/$gone" ]] || die "the retired release automation is back: $gone"
+  done
+  if grep -qF 'test-release' "$PACKAGE_DIR/make/package.mk"; then
+    die 'make/package.mk still wires the retired test-release target'
   fi
-done
-[[ -n $output ]]
-printf '%s\n' 'deterministic upstream archive fixture' > "$output"
-MOCK_CURL
-
-  chmod +x "$test_dir/bin/gh" "$test_dir/bin/curl"
+  if grep -qF 'sync_upstream.sh' "$PACKAGE_DIR/make/package.mk"; then
+    die 'make/package.mk still wires the retired update-upstream target'
+  fi
 }
 
-test_check_detects_release() {
-  local output_file="$test_dir/check-output"
-  local expected_checksum
+test_update_refuses_to_overwrite_skip() {
+  local fixture="$test_dir/skip-PKGBUILD"
+  write_pkgbuild_fixture "$fixture" 'SKIP'
+  local before
+  before="$(cat "$fixture")"
 
-  expected_checksum="$(printf '%s\n' 'deterministic upstream archive fixture' | sha256sum | awk '{print $1}')"
-  PATH="$test_dir/bin:$PATH" \
-    PKGBUILD_PATH="$test_dir/PKGBUILD" \
-    GITHUB_OUTPUT="$output_file" \
-    "$PACKAGE_DIR/scripts/check_upstream.sh" > /dev/null
-
-  assert_file_line 'changed=true' "$output_file"
-  assert_file_line 'upstream_tag=v9.8.7' "$output_file"
-  assert_file_line 'upstream_version=9.8.7' "$output_file"
-  assert_file_line "archive_sha256=$expected_checksum" "$output_file"
+  if PKGBUILD_PATH="$fixture" UPSTREAM_VERSION=9.8.7 \
+       ARCHIVE_SHA256="$FIXED_CHECKSUM" \
+       "$PACKAGE_DIR/scripts/update_package.sh" > "$test_dir/skip.out" 2>&1; then
+    die 'update_package.sh overwrote the SKIP entry instead of dying'
+  fi
+  grep -qF 'SKIP' "$test_dir/skip.out" || die 'the SKIP refusal does not name SKIP'
+  [[ "$(cat "$fixture")" == "$before" ]] || die 'the SKIP refusal mutated the PKGBUILD'
 }
 
-test_update_changes_version_and_resets_release() {
-  local checksum
-  checksum="$(printf '%s\n' 'deterministic upstream archive fixture' | sha256sum | awk '{print $1}')"
+test_update_still_serves_a_fixed_checksum() {
+  local fixture="$test_dir/fixed-PKGBUILD"
+  write_pkgbuild_fixture "$fixture" "$FIXED_CHECKSUM"
 
-  PKGBUILD_PATH="$test_dir/PKGBUILD" \
-    UPSTREAM_VERSION=9.8.7 \
-    ARCHIVE_SHA256="$checksum" \
-    "$PACKAGE_DIR/scripts/update_package.sh" > /dev/null
+  PKGBUILD_PATH="$fixture" UPSTREAM_VERSION=9.8.7 \
+    ARCHIVE_SHA256="$FIXED_CHECKSUM" \
+    "$PACKAGE_DIR/scripts/update_package.sh" > "$test_dir/fixed.out" 2>&1
 
-  assert_file_line 'pkgver=9.8.7' "$test_dir/PKGBUILD"
-  assert_file_line 'pkgrel=1' "$test_dir/PKGBUILD"
-  assert_file_line "  '$checksum'" "$test_dir/PKGBUILD"
-}
-
-test_check_sees_matching_package() {
-  local output_file="$test_dir/matching-output"
-
-  PATH="$test_dir/bin:$PATH" \
-    PKGBUILD_PATH="$test_dir/PKGBUILD" \
-    GITHUB_OUTPUT="$output_file" \
-    "$PACKAGE_DIR/scripts/check_upstream.sh" > /dev/null
-
-  assert_file_line 'changed=false' "$output_file"
+  assert_file_line 'pkgver=9.8.7' "$fixture"
+  assert_file_line 'pkgrel=1' "$fixture"
+  assert_file_line "  '$FIXED_CHECKSUM'" "$fixture"
 }
 
 test_same_version_checksum_change_increments_release() {
-  local checksum
-  checksum="$(printf 'b%.0s' {1..64})"
+  local fixture="$test_dir/bump-PKGBUILD"
+  write_pkgbuild_fixture "$fixture" "$FIXED_CHECKSUM"
 
-  PKGBUILD_PATH="$test_dir/PKGBUILD" \
-    UPSTREAM_VERSION=9.8.7 \
-    ARCHIVE_SHA256="$checksum" \
-    "$PACKAGE_DIR/scripts/update_package.sh" > /dev/null
+  PKGBUILD_PATH="$fixture" UPSTREAM_VERSION=0.2.0 \
+    ARCHIVE_SHA256="$FIXED_CHECKSUM" \
+    "$PACKAGE_DIR/scripts/update_package.sh" > "$test_dir/bump.out" 2>&1
 
-  assert_file_line 'pkgver=9.8.7' "$test_dir/PKGBUILD"
-  assert_file_line 'pkgrel=2' "$test_dir/PKGBUILD"
-  assert_file_line "  '$checksum'" "$test_dir/PKGBUILD"
+  assert_file_line 'pkgver=0.2.0' "$fixture"
+  assert_file_line 'pkgrel=2' "$fixture"
 }
 
 main() {
-  setup
-  test_check_detects_release
-  test_update_changes_version_and_resets_release
-  test_check_sees_matching_package
+  test_dir="$(mktemp -d "${TMPDIR:-/tmp}/ravn-sessionizer-automation-test.XXXXXX")"
+  trap 'rm -rf "$test_dir"' EXIT
+
+  test_retired_automation_is_gone
+  test_update_refuses_to_overwrite_skip
+  test_update_still_serves_a_fixed_checksum
   test_same_version_checksum_change_increments_release
-  printf 'PASS: upstream automation contracts\n'
+  printf 'PASS: guarded updater contracts\n'
 }
 
 main "$@"

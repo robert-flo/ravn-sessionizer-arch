@@ -100,11 +100,28 @@ grep -qF 'source_dir="${srcdir}/${pkgname}-${pkgver}"' "$PACKAGE_DIR/PKGBUILD" |
 # lib,scripts}) se replica en un fixture y se valida contra el. Si la fuente
 # mueve algo, la asercion avisa antes del run real.
 source_fixture="$TEST_ROOT/source-tree"
+# Cada archivo que el install-test de package.yml y el package() consumen
+# del árbol fuente. El fixture replica el layout real (launcher en el
+# raíz, herdr-plugin.toml en el raíz, runtime/{commands.tsv,completion,
+# helper,lib,scripts}); si la fuente mueve o pierde uno, la verificación
+# de abajo avisa antes del run real.
+required_source_files=(
+  ravn-sessionizer
+  Makefile
+  sessionizer.conf.example
+  LICENSE
+  herdr-plugin.toml
+  runtime/commands.tsv
+  runtime/completion/ravn-sessionizer.bash
+  runtime/lib/presentation.sh
+  runtime/scripts/pick
+)
 mkdir -p "$source_fixture/runtime/helper" "$source_fixture/runtime/lib" \
   "$source_fixture/runtime/scripts" "$source_fixture/runtime/completion"
 printf '#!/usr/bin/env bash\n' > "$source_fixture/ravn-sessionizer"
 printf 'install:\n' > "$source_fixture/Makefile"
-touch "$source_fixture/sessionizer.conf.example" "$source_fixture/LICENSE"
+touch "$source_fixture/sessionizer.conf.example" "$source_fixture/LICENSE" \
+  "$source_fixture/herdr-plugin.toml"
 touch "$source_fixture/runtime/commands.tsv" \
   "$source_fixture/runtime/completion/ravn-sessionizer.bash" \
   "$source_fixture/runtime/lib/presentation.sh" \
@@ -112,6 +129,10 @@ touch "$source_fixture/runtime/commands.tsv" \
 [[ -e "$source_fixture/Makefile" ]] || die 'package() runs make -C install: the source tree needs a Makefile'
 [[ -e "$source_fixture/runtime/completion/ravn-sessionizer.bash" ]] || \
   die 'the completion symlink in package() needs runtime/completion/ravn-sessionizer.bash in the source tree'
+for rel in "${required_source_files[@]}"; do
+  [[ -e "$source_fixture/$rel" ]] || \
+    die "the source-tree fixture is missing a file the install-test or package() needs: $rel"
+done
 while IFS= read -r ref; do
   rel="${ref#\$\{source_dir\}/}"
   rel="${rel%/}"
@@ -189,5 +210,47 @@ build_script="$TEST_ROOT/build.sh"
 extract_run 'Build the package and install-test it' > "$build_script"
 [[ -s "$build_script" ]] || die 'could not extract the build step from package.yml'
 bash -n "$build_script" || die 'the extracted build step is not valid bash'
+
+# La instalación de rs/ri se verifica en el run extraído, no en el YAML
+# completo: si el install-test pierde el check del drop-in o de los
+# alias, la mutación muere acá y no solo en el run real.
+grep -qF 'test -f "${rcd}"' "$build_script" || \
+  die 'the install-test does not check the rs/ri drop-in file'
+grep -qF "alias rs='ravn-sessionizer repos'" "$build_script" || \
+  die 'the install-test does not verify the rs alias'
+grep -qF "alias ri='ravn-sessionizer issues'" "$build_script" || \
+  die 'the install-test does not verify the ri alias'
+
+# El install-test asume instalados los paquetes propios que ningún repo
+# del contenedor sirve (viven en omarchy-personal-repo); las deps de
+# repos las resuelve el propio pacman -U descargándolas del sync, como
+# mostró el primer run real (40700029220).
+grep -qF -- '--assume-installed herdr=0.9.5' "$build_script" || \
+  die 'the install-test does not assume herdr installed (it only exists in omarchy-personal-repo)'
+grep -qF -- '--assume-installed ravn-trio=0.1.3' "$build_script" || \
+  die 'the install-test does not assume ravn-trio installed (it only exists in omarchy-personal-repo)'
+grep -qF -- '--assume-installed ravn-omarchy-overlay=0.1.1' "$build_script" || \
+  die 'the install-test does not assume ravn-omarchy-overlay installed (it only exists in omarchy-personal-repo)'
+
+# Cobertura: toda dep del PKGBUILD que no viva en los repos de Arch debe
+# estar en el mecanismo. La lista de repos es la conocida hoy; una dep
+# nueva de repos pide sumarla acá, una propia pide su flag arriba.
+read -r -a pkg_deps <<<"$(sed -n "s/^depends=(\(.*\))\$/\1/p" "$PACKAGE_DIR/PKGBUILD" | tr -d "'")"
+repo_deps=' bash fzf jq github-cli git '
+for dep in "${pkg_deps[@]}"; do
+  name="${dep%%[<>=]*}"
+  if [[ $repo_deps != *" $name "* ]]; then
+    grep -qF -- "--assume-installed $name=" "$build_script" || \
+      die "the install-test does not cover the personal dependency: $name"
+  fi
+done
+
+# El mecanismo es del contenedor: el PKGBUILD mantiene las deps reales
+# del sistema; quitar una para contentar al contenedor rompería
+# pacman -Syu en la máquina real.
+for real_dep in "'herdr>=0.9.5'" "'ravn-trio'" "'ravn-omarchy-overlay>=0.1.1'"; do
+  grep -qF "$real_dep" "$PACKAGE_DIR/PKGBUILD" || \
+    die "PKGBUILD lost the real dependency $real_dep: the container mechanism must not touch the PKGBUILD"
+done
 
 printf '%s\n' 'ok package-workflow'

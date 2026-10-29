@@ -39,20 +39,25 @@ repo de código) y recargá con `herdr server reload-config`.
 ## Validar
 
 ```bash
-make lint                                          # .SRCINFO, bash -n, shellcheck
-make test-release                                  # checksum del tarball publicado (Docker)
+make lint                                            # .SRCINFO, bash -n, shellcheck
 make test-local SOURCE_DIR=/ruta/a/ravn-sessionizer  # build + install + help/list en Arch (Docker)
 make test SOURCE_DIR=/ruta/a/ravn-sessionizer        # todo lo anterior
 ```
 
 `test-local` empaqueta el `HEAD` commiteado del código; lo no commiteado no entra.
 
-## Actualizaciones automáticas
+## Contrato de empaquetado
 
-`.github/workflows/update-upstream.yml` revisa a diario el último *release*
-estable de `robert-flo/ravn-sessionizer` (tags `vN.N.N`), actualiza `pkgver`,
-`pkgrel`, el sha256 y `.SRCINFO`, construye el paquete y commitea. Para sacar
-una versión nueva: tag + `gh release create` en el repo de código.
+El PKGBUILD lleva `sha256sums=('SKIP')` y no pinea checksums: el tarball lo
+genera `package.yml` con `git archive` del sha despachado de
+`robert-flo/ravn-sessionizer` y la versión rastreable sale de
+`git describe` sobre ese sha (`0.2.0.r<N>.<shortsha>`). La automatización de
+tags quedó retirada (sin `update-upstream.yml`, sin `check_upstream.sh`, sin
+`test-release`); `scripts/update_package.sh` se niega a sobreescribir el
+`SKIP` bajo ninguna entrada. Para reconstruir: `gh workflow run package.yml
+-f repo=robert-flo/ravn-sessionizer -f sha=<sha>` en este repo, o el
+`repository_dispatch` `source-updated` una vez cableado el despacho en la
+fuente.
 
 ## Licencia
 
