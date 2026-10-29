@@ -70,6 +70,17 @@ test_retired_automation_is_gone() {
   fi
 }
 
+test_root_has_no_stray_files() {
+  # La raíz del repo lleva solo el arbol conocido. Un archivo suelto aca
+  # es basura de verificacion (asi entro el touch de 0 bytes del PR #14)
+  # y no debe volver a entrar: cualquier nombre fuera de la lista muere.
+  local known root_file
+  known=' .SRCINFO .gitignore LICENSE Makefile PKGBUILD README.md '
+  while IFS= read -r root_file; do
+    [[ $known == *" $root_file "* ]] || die "stray file at the repository root: $root_file"
+  done < <(find "$PACKAGE_DIR" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+}
+
 test_update_refuses_to_overwrite_skip() {
   local fixture="$test_dir/skip-PKGBUILD"
   write_pkgbuild_fixture "$fixture" 'SKIP'
@@ -115,6 +126,7 @@ main() {
   trap 'rm -rf "$test_dir"' EXIT
 
   test_retired_automation_is_gone
+  test_root_has_no_stray_files
   test_update_refuses_to_overwrite_skip
   test_update_still_serves_a_fixed_checksum
   test_same_version_checksum_change_increments_release
